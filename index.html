@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shoppy</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+  <style>
+    .product-card { transition: 0.3s; }
+    .product-card:hover { transform: scale(1.05); box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+    .cart-badge { font-size: 0.7rem; }
+    .category-btn { margin: 0 5px 10px; }
+    .navbar-brand { font-weight: bold; }
+  </style>
+</head>
+<body class="bg-light">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Shoppy</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navMenu">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="#" onclick="showPage('home')">Home</a></li>
+          <li class="nav-item" id="dashboard-link" style="display:none"><a class="nav-link" href="#" onclick="showPage('dashboard')">Dashboard</a></li>
+        </ul>
+        <form class="d-flex me-3" onsubmit="searchProducts(); return false;">
+          <input class="form-control me-2" type="search" id="searchInput" placeholder="Search products..." />
+          <button class="btn btn-outline-light" type="submit"><i class="fas fa-search"></i></button>
+        </form>
+        <div>
+          <span id="user-email" class="text-light me-3" style="display:none"></span>
+          <button id="login-btn" class="btn btn-outline-light me-2" data-bs-toggle="modal" data-bs-target="#authModal" onclick="showLogin()">Login</button>
+          <button id="signup-btn" class="btn btn-light me-2" data-bs-toggle="modal" data-bs-target="#authModal" onclick="showSignup()">Sign Up</button>
+          <button id="logout-btn" class="btn btn-outline-danger" style="display:none" onclick="logout()">Logout</button>
+          <button class="btn btn-outline-light position-relative ms-2" onclick="showCart()">
+            My Cart <span id="cart-count" class="badge bg-danger cart-badge">0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Pages -->
+  <div id="home-page" class="container my-5">
+    <div class="text-center mb-4">
+      <h2>Shop Our Products</h2>
+      <div id="category-filters" class="d-flex justify-content-center flex-wrap"></div>
+    </div>
+    <div class="row" id="product-list"></div>
+  </div>
+
+  <div id="dashboard-page" class="container my-5" style="display:none">
+    <div class="card">
+      <div class="card-body text-center">
+        <h3>Welcome, <span id="dash-email"></span>!</h3>
+        <p>You are logged in. Enjoy shopping!</p>
+        <button class="btn btn-primary" onclick="showPage('home')">Continue Shopping</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div class="modal fade" id="authModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="auth-title">Login</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="auth-form">
+            <div class="mb-3">
+              <label>Email</label>
+              <input type="email" id="auth-email" class="form-control" required />
+            </div>
+            <div class="mb-3">
+              <label>Password</label>
+              <input type="password" id="auth-pass" class="form-control" required />
+            </div>
+            <button type="submit" class="btn btn-success w-100" id="auth-submit">Login</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Detail Modal -->
+  <div class="modal fade" id="productModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-title"></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <img id="modal-img" class="img-fluid mb-3" />
+          <p id="modal-desc"></p>
+          <h5 id="modal-price"></h5>
+          <input type="number" id="qty" value="1" min="1" class="form-control w-50 d-inline" />
+          <button class="btn btn-success mt-2" onclick="addToCart()">Add to Cart</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cart Modal -->
+  <div class="modal fade" id="cartModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5>Your Cart</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="cart-items"></div>
+        <div class="modal-footer">
+          <h5>Total: $<span id="cart-total">0</span></h5>
+          <button class="btn btn-primary" onclick="checkout()">Checkout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const products = [
+      { id: 1, name: "Blue T-Shirt", price: 19.99, img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400", desc: "Soft cotton t-shirt", cat: "Clothing" },
+      { id: 2, name: "Wireless Mouse", price: 34.99, img: "https://www.bhphotovideo.com/images/images2500x2500/hp_h2c22aa_abl_hp_x3000_wireless_mouse_1084959.jpg", desc: "Ergonomic 2.4GHz mouse", cat: "Electronics" },
+      { id: 3, name: "Leather Wallet", price: 49.99, img: "https://m.media-amazon.com/images/I/716B3ThFyfL._SX679_.jpg", desc: "Genuine leather", cat: "Accessories" },
+      { id: 4, name: "Sunglasses", price: 89.99, img: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400", desc: "UV protection", cat: "Accessories" },
+      { id: 5, name: "Coffee Mug", price: 12.99, img: "https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=400", desc: "Ceramic, 12oz", cat: "Accessories" },
+      { id: 6, name: "Black Hoodie", price: 39.99, img: "https://m.media-amazon.com/images/I/51Cw5wdXJtL._SX569_.jpg", desc: "Warm fleece hoodie", cat: "Clothing" }
+    ];
+
+    let cart = [];
+    let currentUser = null;
+    let currentProduct = null;
+    let currentCategory = 'All';
+
+    // Load user & cart
+    function loadUserData() {
+      const user = JSON.parse(localStorage.getItem('currentUser'));
+      const savedCart = JSON.parse(localStorage.getItem('cart_' + (user?.email || 'guest')));
+      cart = savedCart || [];
+      currentUser = user;
+      updateUI();
+    }
+
+    function updateUI() {
+      const isLoggedIn = !!currentUser;
+      document.getElementById('login-btn').style.display = isLoggedIn ? 'none' : 'inline-block';
+      document.getElementById('signup-btn').style.display = isLoggedIn ? 'none' : 'inline-block';
+      document.getElementById('logout-btn').style.display = isLoggedIn ? 'inline-block' : 'none';
+      document.getElementById('user-email').style.display = isLoggedIn ? 'inline' : 'none';
+      document.getElementById('user-email').textContent = currentUser?.email || '';
+      document.getElementById('dashboard-link').style.display = isLoggedIn ? 'block' : 'none';
+      document.getElementById('dash-email').textContent = currentUser?.email || '';
+      updateCartCount();
+      renderProducts();
+      renderCategories();
+    }
+
+    function showLogin() {
+      document.getElementById('auth-title').textContent = 'Login';
+      document.getElementById('auth-submit').textContent = 'Login';
+      document.getElementById('auth-form').onsubmit = login;
+    }
+
+    function showSignup() {
+      document.getElementById('auth-title').textContent = 'Sign Up';
+      document.getElementById('auth-submit').textContent = 'Sign Up';
+      document.getElementById('auth-form').onsubmit = signup;
+    }
+
+    function login(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim();
+      const pass = document.getElementById('auth-pass').value;
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      const user = users.find(u => u.email === email && u.password === pass);
+      if (user) {
+        currentUser = { email };
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        loadUserData();
+        bootstrap.Modal.getInstance(document.getElementById('authModal')).hide();
+      } else {
+        alert('Invalid email or password');
+      }
+    }
+
+    function signup(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim();
+      const pass = document.getElementById('auth-pass').value;
+      if (!email || !pass) return alert('Fill all fields');
+      let users = JSON.parse(localStorage.getItem('users') || '[]');
+      if (users.some(u => u.email === email)) return alert('Email already exists');
+      users.push({ email, password: pass });
+      localStorage.setItem('users', JSON.stringify(users));
+      alert('Signed up! Now login.');
+      showLogin();
+    }
+
+    function logout() {
+      localStorage.removeItem('currentUser');
+      currentUser = null;
+      cart = [];
+      loadUserData();
+      showPage('home');
+    }
+
+    function renderCategories() {
+      const cats = ['All', ...new Set(products.map(p => p.cat))];
+      const container = document.getElementById('category-filters');
+      container.innerHTML = cats.map(c => `
+        <button class="btn btn-outline-primary category-btn ${currentCategory === c ? 'active' : ''}" 
+                onclick="filterCategory('${c}')">${c}</button>
+      `).join('');
+    }
+
+    function filterCategory(cat) {
+      currentCategory = cat;
+      renderProducts();
+      renderCategories();
+    }
+
+    function searchProducts() {
+      renderProducts();
+    }
+
+    function renderProducts() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const list = document.getElementById('product-list');
+      const filtered = products.filter(p => 
+        (currentCategory === 'All' || p.cat === currentCategory) &&
+        p.name.toLowerCase().includes(search)
+      );
+      list.innerHTML = filtered.map(p => `
+        <div class="col-md-4 mb-4">
+          <div class="card product-card h-100" onclick="showDetail(${p.id})">
+            <img src="${p.img}" class="card-img-top" style="height:200px; object-fit:cover;">
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title">${p.name}</h5>
+              <p class="card-text text-muted small">${p.cat}</p>
+              <p class="card-text">$${p.price}</p>
+              <button class="btn btn-primary mt-auto" onclick="event.stopPropagation(); showDetail(${p.id})">View</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function showDetail(id) {
+      currentProduct = products.find(p => p.id === id);
+      document.getElementById('modal-title').textContent = currentProduct.name;
+      document.getElementById('modal-img').src = currentProduct.img;
+      document.getElementById('modal-desc').textContent = currentProduct.desc;
+      document.getElementById('modal-price').textContent = '$' + currentProduct.price;
+      document.getElementById('qty').value = 1;
+      new bootstrap.Modal(document.getElementById('productModal')).show();
+    }
+
+    function addToCart() {
+      const qty = parseInt(document.getElementById('qty').value);
+      const existing = cart.find(item => item.id === currentProduct.id);
+      if (existing) existing.qty += qty;
+      else cart.push({ ...currentProduct, qty });
+      saveCart();
+      updateCartCount();
+      bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+    }
+
+    function saveCart() {
+      const key = 'cart_' + (currentUser?.email || 'guest');
+      localStorage.setItem(key, JSON.stringify(cart));
+    }
+
+    function showCart() {
+      const itemsDiv = document.getElementById('cart-items');
+      if (cart.length === 0) {
+        itemsDiv.innerHTML = '<p>Your cart is empty</p>';
+      } else {
+        itemsDiv.innerHTML = cart.map((item, i) => `
+          <div class="d-flex justify-content-between align-items-center mb-2 p-2 border">
+            <div>
+              <strong>${item.name}</strong> x${item.qty} = $${(item.price * item.qty).toFixed(2)}
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="removeFromCart(${i})">Remove</button>
+          </div>
+        `).join('');
+      }
+      document.getElementById('cart-total').textContent = cart.reduce((sum, i) => sum + i.price * i.qty, 0).toFixed(2);
+      new bootstrap.Modal(document.getElementById('cartModal')).show();
+    }
+
+    function removeFromCart(index) {
+      cart.splice(index, 1);
+      saveCart();
+      showCart();
+      updateCartCount();
+    }
+
+    function checkout() {
+      alert('Thank you for your purchase!');
+      cart = [];
+      saveCart();
+      updateCartCount();
+      bootstrap.Modal.getInstance(document.getElementById('cartModal')).hide();
+    }
+
+    function updateCartCount() {
+      document.getElementById('cart-count').textContent = cart.reduce((sum, i) => sum + i.qty, 0);
+    }
+
+    function showPage(page) {
+      document.getElementById('home-page').style.display = page === 'home' ? 'block' : 'none';
+      document.getElementById('dashboard-page').style.display = page === 'dashboard' ? 'block' : 'none';
+    }
+
+    // Init
+    loadUserData();
+    document.getElementById('searchInput').addEventListener('input', renderProducts);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
